@@ -1,0 +1,138 @@
+name: ChessPizza CI/CD
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Install dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y cmake build-essential
+        sudo apt install -y libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev
+        sudo apt install -y libglew-dev libglm-dev
+    
+    - name: Configure CMake
+      run: |
+        mkdir build
+        cd build
+        cmake .. -DCMAKE_BUILD_TYPE=Release
+    
+    - name: Build
+      run: |
+        cd build
+        make -j$(nproc)
+    
+    - name: Test
+      run: |
+        cd build
+        # Add test commands when tests are available
+        # ctest --output-on-failure
+    
+    - name: Package
+      run: |
+        cd build
+        # Create release package
+        tar -czf chesspizza-linux-x64.tar.gz ChessPizza assets/
+    
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: chesspizza-linux-x64
+        path: build/chesspizza-linux-x64.tar.gz
+
+  build-windows:
+    runs-on: windows-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup vcpkg
+      run: |
+        git clone https://github.com/Microsoft/vcpkg.git
+        ./vcpkg/bootstrap-vcpkg.bat
+        ./vcpkg/vcpkg install sdl2 glew glm --triplet x64-windows
+    
+    - name: Configure CMake
+      run: |
+        mkdir build
+        cd build
+        cmake .. -DCMAKE_TOOLCHAIN_FILE=../vcpkg/scripts/buildsystems/vcpkg.cmake -DCMAKE_BUILD_TYPE=Release
+    
+    - name: Build
+      run: |
+        cd build
+        cmake --build . --config Release
+    
+    - name: Package
+      run: |
+        cd build
+        # Create Windows package
+        7z a chesspizza-windows-x64.zip Release/ChessPizza.exe ../assets/
+    
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: chesspizza-windows-x64
+        path: build/chesspizza-windows-x64.zip
+
+  build-macos:
+    runs-on: macos-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Install dependencies
+      run: |
+        brew install cmake sdl2 sdl2_image sdl2_mixer glew glm
+    
+    - name: Configure CMake
+      run: |
+        mkdir build
+        cd build
+        cmake .. -DCMAKE_BUILD_TYPE=Release
+    
+    - name: Build
+      run: |
+        cd build
+        make -j$(sysctl -n hw.logicalcpu)
+    
+    - name: Package
+      run: |
+        cd build
+        # Create macOS package
+        tar -czf chesspizza-macos-x64.tar.gz ChessPizza assets/
+    
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: chesspizza-macos-x64
+        path: build/chesspizza-macos-x64.tar.gz
+
+  release:
+    needs: [build-linux, build-windows, build-macos]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Download all artifacts
+      uses: actions/download-artifact@v3
+    
+    - name: Create Release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          chesspizza-linux-x64/chesspizza-linux-x64.tar.gz
+          chesspizza-windows-x64/chesspizza-windows-x64.zip
+          chesspizza-macos-x64/chesspizza-macos-x64.tar.gz
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
