@@ -1,18 +1,25 @@
 #pragma once
 
-#include <GL/glew.h>
-#include <GL/gl.h>
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_opengl.h>
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/type_ptr.hpp>
 #include <memory>
 #include <string>
 #include <iostream>
 #include "renderer.h"
 #include "difficulty_manager.h"
 #include "theme_manager.h"
+
+// Forward declare SDL types if not available
+#ifndef SDL_AVAILABLE
+#ifndef SDL2_AVAILABLE
+typedef struct SDL_Window SDL_Window;
+typedef void* SDL_GLContext;
+typedef unsigned int Uint32;
+typedef union SDL_Event SDL_Event;
+typedef struct SDL_KeyboardEvent SDL_KeyboardEvent;
+typedef struct SDL_MouseButtonEvent SDL_MouseButtonEvent;
+typedef struct SDL_WindowEvent SDL_WindowEvent;
+#define SDL_NUM_SCANCODES 512
+#endif
+#endif
 
 namespace ChessPizza {
 
@@ -74,6 +81,8 @@ private:
     GameSettings settings_;
     bool running_;
     bool vsync_;
+    bool sdl_available_;
+    bool opengl_available_;
     
     // Timing
     Uint32 last_frame_time_;
